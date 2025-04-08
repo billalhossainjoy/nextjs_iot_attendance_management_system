@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -14,11 +14,14 @@ import { Input } from "@/components/ui/input";
 import { Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { UserDialog } from "@/components/UserDialog";
 import { DeleteUserDialog } from "@/components/DeleteUserDialog";
+import { useToast } from "@/components/ui/use-toast";
 
 interface User {
   id: string;
-  name: string;
+  name: string | null;
   email: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export default function UsersPage() {
@@ -28,10 +31,37 @@ export default function UsersPage() {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | undefined>();
   const [userToDelete, setUserToDelete] = useState<User | undefined>();
+  const [isLoading, setIsLoading] = useState(true);
+  const { toast } = useToast();
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/users");
+      if (!response.ok) {
+        throw new Error("Failed to fetch users");
+      }
+      const data = await response.json();
+      setUsers(data);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load users. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const filteredUsers = users.filter(
     (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (user.name?.toLowerCase() || "").includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -50,29 +80,91 @@ export default function UsersPage() {
     setIsDeleteDialogOpen(true);
   };
 
-  const handleSaveUser = (userData: Omit<User, "id">) => {
-    if (selectedUser) {
-      // Update existing user
-      setUsers(
-        users.map((user) =>
-          user.id === selectedUser.id ? { ...user, ...userData } : user
-        )
-      );
-    } else {
-      // Add new user
-      const newUser: User = {
-        id: Math.random().toString(36).substr(2, 9), // Simple ID generation
-        ...userData,
-      };
-      setUsers([...users, newUser]);
+  const handleSaveUser = async (userData: { name: string; email: string }) => {
+    try {
+      if (selectedUser) {
+        // Update existing user
+        const response = await fetch(`/api/users/${selectedUser.id}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(userData),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to update user");
+        }
+
+        const updatedUser = await response.json();
+        setUsers(users.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+        toast({
+          title: "Success",
+          description: "User updated successfully",
+        });
+      } else {
+        // Create new user
+        const response = await fetch("/api/users", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(userData),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to create user");
+        }
+
+        const newUser = await response.json();
+        setUsers([...users, newUser]);
+        toast({
+          title: "Success",
+          description: "User created successfully",
+        });
+      }
+      setIsUserDialogOpen(false);
+    } catch (error) {
+      console.error("Error saving user:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleConfirmDelete = () => {
-    if (userToDelete) {
+  const handleConfirmDelete = async () => {
+    if (!userToDelete) return;
+
+    try {
+      const response = await fetch(`/api/users/${userToDelete.id}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to delete user");
+      }
+
       setUsers(users.filter((user) => user.id !== userToDelete.id));
       setIsDeleteDialogOpen(false);
       setUserToDelete(undefined);
+      toast({
+        title: "Success",
+        description: "User deleted successfully",
+      });
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      toast({
+        title: "Error",
+        description:
+          error instanceof Error ? error.message : "An unknown error occurred",
+        variant: "destructive",
+      });
     }
   };
 
@@ -114,7 +206,13 @@ export default function UsersPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.length === 0 ? (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={3} className="h-24 text-center">
+                    Loading users...
+                  </TableCell>
+                </TableRow>
+              ) : filteredUsers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={3} className="h-24 text-center">
                     No users found
@@ -123,7 +221,9 @@ export default function UsersPage() {
               ) : (
                 filteredUsers.map((user) => (
                   <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
+                    <TableCell className="font-medium">
+                      {user.name || "—"}
+                    </TableCell>
                     <TableCell>{user.email}</TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -156,14 +256,22 @@ export default function UsersPage() {
       <UserDialog
         open={isUserDialogOpen}
         onOpenChange={setIsUserDialogOpen}
-        user={selectedUser}
+        user={
+          selectedUser
+            ? {
+                id: selectedUser.id,
+                name: selectedUser.name || "",
+                email: selectedUser.email,
+              }
+            : undefined
+        }
         onSave={handleSaveUser}
       />
 
       <DeleteUserDialog
         open={isDeleteDialogOpen}
         onOpenChange={setIsDeleteDialogOpen}
-        userName={userToDelete?.name || ""}
+        userName={userToDelete?.name || "this user"}
         onConfirm={handleConfirmDelete}
       />
     </div>
