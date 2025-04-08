@@ -32,6 +32,9 @@ const handler = NextAuth({
       return true;
     },
   },
+  pages: {
+    error: "/"
+  }
 });
 
 export { handler as GET, handler as POST };
