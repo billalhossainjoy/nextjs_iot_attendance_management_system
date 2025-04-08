@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LayoutDashboard, Users, UserCog, LogOut } from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
 
 export default function DashboardLayout({
   children,
@@ -15,6 +16,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { data: session } = useSession();
 
   const routes = [
     {
@@ -63,14 +65,33 @@ export default function DashboardLayout({
         <div className="border-t p-3">
           <div className="flex items-center gap-3">
             <Avatar>
-              <AvatarImage src="/avatar.png" alt="User" />
-              <AvatarFallback>UN</AvatarFallback>
+              <AvatarImage
+                src={session?.user?.image || ""}
+                alt={session?.user?.name || "User"}
+              />
+              <AvatarFallback>
+                {session?.user?.name
+                  ? session.user.name
+                      .split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                  : "UN"}
+              </AvatarFallback>
             </Avatar>
             <div className="flex flex-col">
-              <span className="text-sm font-medium">User Name</span>
-              <span className="text-xs text-muted-foreground">Admin</span>
+              <span className="text-sm font-medium">
+                {session?.user?.name || "User"}
+              </span>
+              <span className="text-xs text-muted-foreground">
+                {session?.user?.email || "Admin"}
+              </span>
             </div>
-            <Button variant="ghost" size="icon" className="ml-auto">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="ml-auto"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+            >
               <LogOut className="h-4 w-4" />
             </Button>
           </div>
