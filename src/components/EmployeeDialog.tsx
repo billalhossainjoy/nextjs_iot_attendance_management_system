@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 
 interface Employee {
   id: string;
+  fingerId?: string;
   name: string;
   email: string;
 }
@@ -22,7 +23,7 @@ interface EmployeeDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   employee?: Employee;
-  onSave: (employee: Employee) => void;
+  onSave: (employee: Omit<Employee, "id">) => void;
 }
 
 export function EmployeeDialog({
@@ -31,22 +32,18 @@ export function EmployeeDialog({
   employee,
   onSave,
 }: EmployeeDialogProps) {
-  const [id, setId] = useState("");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [errors, setErrors] = useState<{
-    id?: string;
     name?: string;
     email?: string;
   }>({});
 
   useEffect(() => {
     if (employee) {
-      setId(employee.id);
       setName(employee.name);
       setEmail(employee.email);
     } else {
-      setId("");
       setName("");
       setEmail("");
     }
@@ -55,11 +52,7 @@ export function EmployeeDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const newErrors: { id?: string; name?: string; email?: string } = {};
-
-    if (!id.trim()) {
-      newErrors.id = "ID is required";
-    }
+    const newErrors: { name?: string; email?: string } = {};
 
     if (!name.trim()) {
       newErrors.name = "Name is required";
@@ -76,7 +69,10 @@ export function EmployeeDialog({
       return;
     }
 
-    onSave({ id, name, email });
+    onSave({
+      name,
+      email,
+    });
     onOpenChange(false);
   };
 
@@ -90,22 +86,6 @@ export function EmployeeDialog({
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="id" className="text-sm font-medium">
-                ID
-              </Label>
-              <Input
-                id="id"
-                value={id}
-                onChange={(e) => setId(e.target.value)}
-                placeholder="Enter employee ID"
-                className="h-10 font-mono"
-                disabled={!!employee}
-              />
-              {errors.id && (
-                <p className="text-sm text-red-500 mt-1">{errors.id}</p>
-              )}
-            </div>
             <div className="space-y-2">
               <Label htmlFor="name" className="text-sm font-medium">
                 Name
