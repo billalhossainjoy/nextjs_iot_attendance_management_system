@@ -1,36 +1,93 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Attendance Management System
 
-## Getting Started
+A modern attendance management system built with Next.js, Prisma, and PostgreSQL.
 
-First, run the development server:
+## Docker Setup
+
+This project uses Docker Compose to set up a development environment with PostgreSQL.
+
+### Prerequisites
+
+- Docker and Docker Compose installed on your machine
+
+### Getting Started
+
+1. Clone the repository:
+
+   ```bash
+   git clone <repository-url>
+   cd attendance-management
+   ```
+
+2. Create a `.env` file:
+
+   ```bash
+   cp .env.example .env
+   ```
+
+   Update the environment variables in `.env` file with your own configuration.
+
+3. Start the Docker containers:
+
+   ```bash
+   docker compose up
+   ```
+
+   This will start both the PostgreSQL database and the web application.
+
+4. Access the application:
+
+   Once the containers are running, you can access the application at http://localhost:3000
+
+### Development Workflow
+
+- The application code is mounted as a volume, so any changes you make to the code will be reflected immediately.
+- The database is persisted in a Docker volume called `postgres-data`.
+
+### Running Commands
+
+To run commands in the web container:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+docker compose exec web <command>
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+For example, to run Prisma migrations:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+docker compose exec web bunx prisma migrate dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Database Management
 
-## Learn More
+### Viewing Database Data
 
-To learn more about Next.js, take a look at the following resources:
+You can connect to the PostgreSQL database using any PostgreSQL client with these credentials:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- Host: localhost
+- Port: 5432
+- Username: postgres
+- Password: postgres
+- Database: attendance
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Running Migrations
 
-## Deploy on Vercel
+To create and apply new migrations:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+docker compose exec web bunx prisma migrate dev --name <migration-name>
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Stopping the Application
+
+To stop the application and preserve the data:
+
+```bash
+docker compose down
+```
+
+To stop the application and remove all data:
+
+```bash
+docker compose down -v
+```

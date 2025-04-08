@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/prisma";
 import NextAuth from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
 
@@ -14,13 +15,23 @@ const handler = NextAuth({
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
-    async jwt({ token, account, profile }) {
-      console.log("account",account);
-      console.log("profile", profile);
+    signIn: async ({ profile }) => {
+      const email = profile?.email;
 
-      return token
-    }
-  }
+      if (!email) return false;
+
+      const user = await prisma.user.findUnique({
+        where: {
+          email,
+        },
+      });
+
+
+      if (!user || user.email !== email) return false;
+
+      return true;
+    },
+  },
 });
 
 export { handler as GET, handler as POST };
