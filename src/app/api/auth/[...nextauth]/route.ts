@@ -26,15 +26,14 @@ const handler = NextAuth({
         },
       });
 
-
       if (!user || user.email !== email) return false;
 
       return true;
     },
   },
   pages: {
-    error: "/"
-  }
+    error: "/",
+  },
 });
 
 export { handler as GET, handler as POST };
