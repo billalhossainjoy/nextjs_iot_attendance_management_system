@@ -81,11 +81,11 @@ export function AttendanceDetails({ id }: AttendanceDetailsProps) {
   }
 
   const statusVariant = {
-    present: "success",
+    present: "default",
     absent: "destructive",
-    late: "warning",
-    "half-day": "secondary",
-  }[attendance.status] as "success" | "destructive" | "warning" | "secondary";
+    late: "secondary",
+    "half-day": "outline",
+  }[attendance.status] as "default" | "destructive" | "outline" | "secondary";
 
   return (
     <div className="space-y-6">
