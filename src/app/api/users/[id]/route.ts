@@ -10,7 +10,7 @@ interface Params {
 // GET - Retrieve a user by ID
 export async function GET(request: Request, { params }: Params) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const user = await prisma.user.findUnique({
       where: { id },
@@ -33,7 +33,7 @@ export async function GET(request: Request, { params }: Params) {
 // PATCH - Update a user by ID
 export async function PATCH(request: Request, { params }: Params) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { name, email } = body;
 
@@ -82,7 +82,7 @@ export async function PATCH(request: Request, { params }: Params) {
 // DELETE - Delete a user by ID
 export async function DELETE(request: Request, { params }: Params) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
@@ -114,7 +114,7 @@ export async function DELETE(request: Request, { params }: Params) {
 // PUT - Replace a user by ID (alternative to PATCH)
 export async function PUT(request: Request, { params }: Params) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
     const { name, email } = body;
 
