@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ColumnDef,
   flexRender,
@@ -49,7 +49,33 @@ interface AttendanceTableProps {
 export function AttendanceTable({ filters }: AttendanceTableProps) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [data] = useState<Attendance[]>([]); // TODO: Fetch data from API
+  const [data, setData] = useState<Attendance[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const startDate = format(filters.date, "yyyy-MM-dd");
+        const response = await fetch(
+          `/api/attendance/date?startDate=${startDate}`
+        );
+        const result = await response.json();
+
+        if (response.ok) {
+          setData(result.present);
+        } else {
+          console.error("Failed to fetch attendance data:", result.error);
+        }
+      } catch (error) {
+        console.error("Error fetching attendance data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [filters.date]);
 
   const columns: ColumnDef<Attendance>[] = [
     {
@@ -63,7 +89,10 @@ export function AttendanceTable({ filters }: AttendanceTableProps) {
     {
       accessorKey: "checkIn",
       header: "Check In",
-      cell: ({ row }) => format(new Date(row.getValue("checkIn")), "hh:mm a"),
+      cell: ({ row }) => {
+        const checkIn = row.getValue("checkIn");
+        return checkIn ? format(new Date(checkIn), "hh:mm a") : "-";
+      },
     },
     {
       accessorKey: "checkOut",
@@ -146,7 +175,16 @@ export function AttendanceTable({ filters }: AttendanceTableProps) {
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows?.length ? (
+            {loading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
+                  Loading...
+                </TableCell>
+              </TableRow>
+            ) : table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
                 <TableRow key={row.id}>
                   {row.getVisibleCells().map((cell) => (

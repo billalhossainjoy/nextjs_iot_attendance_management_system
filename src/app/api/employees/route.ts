@@ -7,11 +7,12 @@ export async function GET() {
     const employees = await prisma.employee.findMany({
       select: {
         id: true,
-        fingerId: true,
         name: true,
         email: true,
-        createdAt: true,
-        updatedAt: true,
+        fingerId: true,
+      },
+      orderBy: {
+        name: "asc",
       },
     });
 

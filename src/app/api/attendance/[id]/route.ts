@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { use } from "react";
 
-interface Params {
-  params: {
-    id: string;
-  };
+interface RouteProps {
+  params: Promise<{ id: string }>;
 }
 
-// GET - Retrieve an attendance record by ID
-export async function GET(request: Request, { params }: Params) {
+// GET - Get a single attendance record
+export async function GET(request: Request, { params }: RouteProps) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     const attendance = await prisma.attendance.findUnique({
       where: { id },
@@ -35,7 +34,7 @@ export async function GET(request: Request, { params }: Params) {
 
     return NextResponse.json(attendance, { status: 200 });
   } catch (error) {
-    console.error(`Error fetching attendance record ${params.id}:`, error);
+    console.error(`Error fetching attendance record:`, error);
     return NextResponse.json(
       { error: "Failed to fetch attendance record" },
       { status: 500 }
@@ -43,45 +42,15 @@ export async function GET(request: Request, { params }: Params) {
   }
 }
 
-// PATCH - Update an attendance record by ID
-export async function PATCH(request: Request, { params }: Params) {
+// PUT - Update an attendance record
+export async function PUT(request: Request, { params }: RouteProps) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const body = await request.json();
-    const { employeeId } = body;
 
-    // Check if attendance record exists
-    const existingAttendance = await prisma.attendance.findUnique({
+    const attendance = await prisma.attendance.update({
       where: { id },
-    });
-
-    if (!existingAttendance) {
-      return NextResponse.json(
-        { error: "Attendance record not found" },
-        { status: 404 }
-      );
-    }
-
-    // Check if employee exists if employeeId is provided
-    if (employeeId) {
-      const employee = await prisma.employee.findUnique({
-        where: { id: employeeId },
-      });
-
-      if (!employee) {
-        return NextResponse.json(
-          { error: "Employee not found" },
-          { status: 404 }
-        );
-      }
-    }
-
-    // Update attendance record
-    const updatedAttendance = await prisma.attendance.update({
-      where: { id },
-      data: {
-        ...(employeeId && { employeeId }),
-      },
+      data: body,
       include: {
         employee: {
           select: {
@@ -94,9 +63,9 @@ export async function PATCH(request: Request, { params }: Params) {
       },
     });
 
-    return NextResponse.json(updatedAttendance, { status: 200 });
+    return NextResponse.json(attendance, { status: 200 });
   } catch (error) {
-    console.error(`Error updating attendance record ${params.id}:`, error);
+    console.error(`Error updating attendance record:`, error);
     return NextResponse.json(
       { error: "Failed to update attendance record" },
       { status: 500 }
@@ -104,24 +73,11 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 }
 
-// DELETE - Delete an attendance record by ID
-export async function DELETE(request: Request, { params }: Params) {
+// DELETE - Delete an attendance record
+export async function DELETE(request: Request, { params }: RouteProps) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
-    // Check if attendance record exists
-    const existingAttendance = await prisma.attendance.findUnique({
-      where: { id },
-    });
-
-    if (!existingAttendance) {
-      return NextResponse.json(
-        { error: "Attendance record not found" },
-        { status: 404 }
-      );
-    }
-
-    // Delete attendance record
     await prisma.attendance.delete({
       where: { id },
     });
@@ -131,7 +87,7 @@ export async function DELETE(request: Request, { params }: Params) {
       { status: 200 }
     );
   } catch (error) {
-    console.error(`Error deleting attendance record ${params.id}:`, error);
+    console.error(`Error deleting attendance record:`, error);
     return NextResponse.json(
       { error: "Failed to delete attendance record" },
       { status: 500 }

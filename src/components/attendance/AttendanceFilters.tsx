@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Popover,
@@ -18,6 +19,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+interface Employee {
+  id: string;
+  name: string;
+  email: string;
+}
+
 interface AttendanceFiltersProps {
   filters: {
     date: Date;
@@ -35,6 +42,31 @@ export function AttendanceFilters({
   filters,
   setFilters,
 }: AttendanceFiltersProps) {
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch("/api/employees");
+        const data = await response.json();
+
+        if (response.ok) {
+          setEmployees(data);
+        } else {
+          console.error("Failed to fetch employees:", data.error);
+        }
+      } catch (error) {
+        console.error("Error fetching employees:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEmployees();
+  }, []);
+
   return (
     <div className="flex items-center gap-4">
       <Popover>
@@ -73,7 +105,17 @@ export function AttendanceFilters({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all">All Employees</SelectItem>
-          {/* TODO: Add employee options from API */}
+          {loading ? (
+            <SelectItem value="loading" disabled>
+              Loading...
+            </SelectItem>
+          ) : (
+            employees.map((employee) => (
+              <SelectItem key={employee.id} value={employee.id}>
+                {employee.name}
+              </SelectItem>
+            ))
+          )}
         </SelectContent>
       </Select>
     </div>

@@ -34,7 +34,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { employeeId } = body;
+    const { employeeId, status, notes } = body;
 
     if (!employeeId) {
       return NextResponse.json(
@@ -59,6 +59,8 @@ export async function POST(request: Request) {
     const attendance = await prisma.attendance.create({
       data: {
         employeeId,
+        status: status || "present",
+        notes,
       },
       include: {
         employee: {

@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { fingerId } = body;
+    const { fingerId, action } = body;
 
     if (!fingerId) {
       return NextResponse.json(
@@ -43,50 +43,79 @@ export async function POST(request: Request) {
       },
     });
 
-    if (existingAttendance) {
-      return NextResponse.json(
-        {
-          message: "Attendance already marked for today",
-          employee: {
-            id: employee.id,
-            name: employee.name,
-            fingerId: employee.fingerId,
-            email: employee.email,
+    if (action === "check-in") {
+      if (existingAttendance) {
+        return NextResponse.json(
+          {
+            message: "Attendance already marked for today",
+            employee: {
+              id: employee.id,
+              name: employee.name,
+              fingerId: employee.fingerId,
+              email: employee.email,
+            },
+            attendance: existingAttendance,
           },
-          attendance: existingAttendance,
+          { status: 200 }
+        );
+      }
+
+      // Create attendance record for check-in
+      const attendance = await prisma.attendance.create({
+        data: {
+          employeeId: employee.id,
+          status: "present",
         },
-        { status: 200 }
+        include: {
+          employee: {
+            select: {
+              id: true,
+              fingerId: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      return NextResponse.json(attendance, { status: 201 });
+    } else if (action === "check-out") {
+      if (!existingAttendance) {
+        return NextResponse.json(
+          { error: "No check-in record found for today" },
+          { status: 404 }
+        );
+      }
+
+      // Update attendance record for check-out
+      const updatedAttendance = await prisma.attendance.update({
+        where: { id: existingAttendance.id },
+        data: {
+          checkOut: new Date(),
+        },
+        include: {
+          employee: {
+            select: {
+              id: true,
+              fingerId: true,
+              name: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      return NextResponse.json(updatedAttendance, { status: 200 });
+    } else {
+      return NextResponse.json(
+        { error: "Invalid action. Use 'check-in' or 'check-out'" },
+        { status: 400 }
       );
     }
-
-    // Create attendance record
-    const attendance = await prisma.attendance.create({
-      data: {
-        employeeId: employee.id,
-      },
-      include: {
-        employee: {
-          select: {
-            id: true,
-            fingerId: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    });
-
-    return NextResponse.json(
-      {
-        message: "Attendance marked successfully",
-        attendance,
-      },
-      { status: 201 }
-    );
   } catch (error) {
-    console.error("Error marking attendance:", error);
+    console.error("Error processing attendance:", error);
     return NextResponse.json(
-      { error: "Failed to mark attendance" },
+      { error: "Failed to process attendance" },
       { status: 500 }
     );
   }

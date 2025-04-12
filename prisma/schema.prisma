@@ -26,9 +26,13 @@ model Employee {
 }
 
 model Attendance {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   employeeId String
-  employee   Employee @relation(fields: [employeeId], references: [id])
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  employee   Employee  @relation(fields: [employeeId], references: [id])
+  checkIn    DateTime  @default(now())
+  checkOut   DateTime?
+  status     String    @default("present")
+  notes      String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }

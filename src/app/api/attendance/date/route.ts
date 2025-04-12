@@ -6,7 +6,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get("startDate");
-    const endDate = searchParams.get("endDate");
+    const employeeId = searchParams.get("employeeId");
 
     if (!startDate) {
       return NextResponse.json(
@@ -18,23 +18,24 @@ export async function GET(request: Request) {
     let start = new Date(startDate);
     start.setHours(0, 0, 0, 0);
 
-    let end: Date;
-    if (endDate) {
-      end = new Date(endDate);
-      end.setHours(23, 59, 59, 999);
-    } else {
-      // If no end date is provided, use the start date (with end of day)
-      end = new Date(start);
-      end.setHours(23, 59, 59, 999);
+    let end = new Date(start);
+    end.setHours(23, 59, 59, 999);
+
+    // Build the where clause
+    const whereClause: any = {
+      createdAt: {
+        gte: start,
+        lte: end,
+      },
+    };
+
+    // Add employee filter if specified
+    if (employeeId && employeeId !== "all") {
+      whereClause.employeeId = employeeId;
     }
 
     const attendances = await prisma.attendance.findMany({
-      where: {
-        createdAt: {
-          gte: start,
-          lte: end,
-        },
-      },
+      where: whereClause,
       include: {
         employee: {
           select: {
@@ -50,7 +51,7 @@ export async function GET(request: Request) {
       },
     });
 
-    // Get all employees
+    // Get all employees for absent calculation
     const employees = await prisma.employee.findMany({
       select: {
         id: true,
