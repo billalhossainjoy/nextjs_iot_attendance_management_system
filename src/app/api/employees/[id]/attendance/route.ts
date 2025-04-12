@@ -1,20 +1,77 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-interface Params {
-  params: {
-    id: string;
-  };
+interface RouteProps {
+  params: Promise<{ id: string }>;
 }
 
 // GET - Get attendance records for a specific employee
-export async function GET(request: Request, { params }: Params) {
+export async function GET(request: Request, { params }: RouteProps) {
   try {
-    const { id } = params;
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
 
-    const startDateParam = searchParams.get("startDate");
-    const endDateParam = searchParams.get("endDate");
+    if (!startDate) {
+      return NextResponse.json(
+        { error: "Start date is required" },
+        { status: 400 }
+      );
+    }
+
+    let start = new Date(startDate);
+    start.setHours(0, 0, 0, 0);
+
+    let end: Date;
+    if (endDate) {
+      end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      // If no end date is provided, use the start date (with end of day)
+      end = new Date(start);
+      end.setHours(23, 59, 59, 999);
+    }
+
+    const attendances = await prisma.attendance.findMany({
+      where: {
+        employeeId: id,
+        createdAt: {
+          gte: start,
+          lte: end,
+        },
+      },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            fingerId: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return NextResponse.json(attendances, { status: 200 });
+  } catch (error) {
+    console.error(`Error fetching attendance for employee:`, error);
+    return NextResponse.json(
+      { error: "Failed to fetch attendance records" },
+      { status: 500 }
+    );
+  }
+}
+
+// POST - Create a new attendance record for an employee
+export async function POST(request: Request, { params }: RouteProps) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const { checkIn, checkOut, status, notes } = body;
 
     // Check if employee exists
     const employee = await prisma.employee.findUnique({
@@ -28,142 +85,31 @@ export async function GET(request: Request, { params }: Params) {
       );
     }
 
-    // Set up date filters
-    let dateFilter = {};
-
-    if (startDateParam) {
-      const startDate = new Date(startDateParam);
-      startDate.setHours(0, 0, 0, 0);
-
-      if (endDateParam) {
-        const endDate = new Date(endDateParam);
-        endDate.setHours(23, 59, 59, 999);
-
-        dateFilter = {
-          createdAt: {
-            gte: startDate,
-            lte: endDate,
-          },
-        };
-      } else {
-        // If only startDate is provided, get attendance for just that day
-        const nextDay = new Date(startDate);
-        nextDay.setDate(nextDay.getDate() + 1);
-
-        dateFilter = {
-          createdAt: {
-            gte: startDate,
-            lt: nextDay,
-          },
-        };
-      }
-    }
-
-    // Get attendance records
-    const attendanceRecords = await prisma.attendance.findMany({
-      where: {
+    const attendance = await prisma.attendance.create({
+      data: {
         employeeId: id,
-        ...dateFilter,
+        checkIn: new Date(checkIn),
+        checkOut: checkOut ? new Date(checkOut) : null,
+        status,
+        notes,
       },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    // Get attendance statistics
-    const totalAttendance = await prisma.attendance.count({
-      where: {
-        employeeId: id,
-      },
-    });
-
-    // Get current month's attendance
-    const today = new Date();
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const endOfMonth = new Date(
-      today.getFullYear(),
-      today.getMonth() + 1,
-      0,
-      23,
-      59,
-      59,
-      999
-    );
-
-    const currentMonthAttendance = await prisma.attendance.count({
-      where: {
-        employeeId: id,
-        createdAt: {
-          gte: startOfMonth,
-          lte: endOfMonth,
-        },
-      },
-    });
-
-    // Calculate work days in current month (excluding weekends)
-    const workDaysInMonth = (() => {
-      let count = 0;
-      let date = new Date(startOfMonth);
-
-      while (date <= endOfMonth) {
-        // 0 = Sunday, 6 = Saturday
-        const day = date.getDay();
-        if (day !== 0 && day !== 6) {
-          count++;
-        }
-        date.setDate(date.getDate() + 1);
-      }
-
-      return count;
-    })();
-
-    // Calculate days up to today (excluding weekends)
-    const workDaysUpToToday = (() => {
-      let count = 0;
-      let date = new Date(startOfMonth);
-
-      while (date <= today) {
-        const day = date.getDay();
-        if (day !== 0 && day !== 6) {
-          count++;
-        }
-        date.setDate(date.getDate() + 1);
-      }
-
-      return count;
-    })();
-
-    return NextResponse.json(
-      {
+      include: {
         employee: {
-          id: employee.id,
-          name: employee.name,
-          email: employee.email,
-          fingerId: employee.fingerId,
-        },
-        attendanceRecords,
-        stats: {
-          totalAttendance,
-          currentMonthAttendance,
-          workDaysInMonth,
-          workDaysUpToToday,
-          attendanceRate:
-            workDaysUpToToday > 0
-              ? ((currentMonthAttendance / workDaysUpToToday) * 100).toFixed(
-                  2
-                ) + "%"
-              : "0%",
+          select: {
+            id: true,
+            fingerId: true,
+            name: true,
+            email: true,
+          },
         },
       },
-      { status: 200 }
-    );
+    });
+
+    return NextResponse.json(attendance, { status: 201 });
   } catch (error) {
-    console.error(
-      `Error fetching attendance for employee ${params.id}:`,
-      error
-    );
+    console.error(`Error creating attendance for employee:`, error);
     return NextResponse.json(
-      { error: "Failed to fetch attendance records" },
+      { error: "Failed to create attendance record" },
       { status: 500 }
     );
   }
