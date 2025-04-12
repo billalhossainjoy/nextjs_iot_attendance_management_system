@@ -1,16 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   ColumnDef,
+  ColumnFiltersState,
+  SortingState,
+  VisibilityState,
   flexRender,
   getCoreRowModel,
-  useReactTable,
+  getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
-  SortingState,
-  getFilteredRowModel,
+  useReactTable,
 } from "@tanstack/react-table";
+import { format } from "date-fns";
+import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
   Table,
   TableBody,
@@ -19,63 +35,27 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { Eye } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface Attendance {
   id: string;
-  employeeId: string;
   employee: {
     name: string;
     email: string;
   };
-  checkIn: Date;
-  checkOut: Date | null;
+  checkIn: string;
+  checkOut: string | null;
   status: "present" | "absent" | "late" | "half-day";
   notes?: string;
 }
 
-interface AttendanceTableProps {
-  filters: {
-    date: Date;
-    employeeId: string;
-    search: string;
-  };
-}
-
-export function AttendanceTable({ filters }: AttendanceTableProps) {
+export function AttendanceTable({ data }: { data: Attendance[] }) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
-  const [data, setData] = useState<Attendance[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const startDate = format(filters.date, "yyyy-MM-dd");
-        const response = await fetch(
-          `/api/attendance/date?startDate=${startDate}`
-        );
-        const result = await response.json();
-
-        if (response.ok) {
-          setData(result.present);
-        } else {
-          console.error("Failed to fetch attendance data:", result.error);
-        }
-      } catch (error) {
-        console.error("Error fetching attendance data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [filters.date]);
+  const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
+  const [rowSelection, setRowSelection] = useState({});
 
   const columns: ColumnDef<Attendance>[] = [
     {
@@ -83,22 +63,38 @@ export function AttendanceTable({ filters }: AttendanceTableProps) {
       header: "Employee",
     },
     {
-      accessorKey: "employee.email",
-      header: "Email",
-    },
-    {
       accessorKey: "checkIn",
-      header: "Check In",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Check In
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
       cell: ({ row }) => {
-        const checkIn = row.getValue("checkIn");
+        const checkIn = row.original.checkIn;
         return checkIn ? format(new Date(checkIn), "hh:mm a") : "-";
       },
     },
     {
       accessorKey: "checkOut",
-      header: "Check Out",
+      header: ({ column }) => {
+        return (
+          <Button
+            variant="ghost"
+            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
+          >
+            Check Out
+            <ArrowUpDown className="ml-2 h-4 w-4" />
+          </Button>
+        );
+      },
       cell: ({ row }) => {
-        const checkOut = row.getValue("checkOut");
+        const checkOut = row.original.checkOut;
         return checkOut ? format(new Date(checkOut), "hh:mm a") : "-";
       },
     },
@@ -107,15 +103,15 @@ export function AttendanceTable({ filters }: AttendanceTableProps) {
       header: "Status",
       cell: ({ row }) => {
         const status = row.getValue("status") as string;
-        const variant = {
-          present: "success",
+        const statusVariant = {
+          present: "default",
           absent: "destructive",
-          late: "warning",
-          "half-day": "secondary",
-        }[status] as "success" | "destructive" | "warning" | "secondary";
+          late: "secondary",
+          "half-day": "outline",
+        }[status] as "default" | "destructive" | "outline" | "secondary";
 
         return (
-          <Badge variant={variant}>
+          <Badge variant={statusVariant}>
             {status.charAt(0).toUpperCase() + status.slice(1)}
           </Badge>
         );
@@ -123,18 +119,32 @@ export function AttendanceTable({ filters }: AttendanceTableProps) {
     },
     {
       id: "actions",
+      enableHiding: false,
       cell: ({ row }) => {
+        const attendance = row.original;
+
         return (
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() =>
-              router.push(`/dashboard/attendance/${row.original.id}`)
-            }
-          >
-            <Eye className="h-4 w-4" />
-            <span className="sr-only">View details</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Open menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+              <DropdownMenuItem
+                onClick={() =>
+                  router.push(`/dashboard/attendance/${attendance.id}`)
+                }
+              >
+                View Details
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem>Edit</DropdownMenuItem>
+              <DropdownMenuItem>Delete</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         );
       },
     },
@@ -143,50 +153,89 @@ export function AttendanceTable({ filters }: AttendanceTableProps) {
   const table = useReactTable({
     data,
     columns,
+    onSortingChange: setSorting,
+    onColumnFiltersChange: setColumnFilters,
     getCoreRowModel: getCoreRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    onSortingChange: setSorting,
+    onColumnVisibilityChange: setColumnVisibility,
+    onRowSelectionChange: setRowSelection,
     state: {
       sorting,
-      globalFilter: filters.search,
+      columnFilters,
+      columnVisibility,
+      rowSelection,
     },
   });
 
   return (
-    <div className="space-y-4">
+    <div className="w-full">
+      <div className="flex items-center py-4">
+        <Input
+          placeholder="Filter by employee..."
+          value={
+            (table.getColumn("employee.name")?.getFilterValue() as string) ?? ""
+          }
+          onChange={(event) =>
+            table.getColumn("employee.name")?.setFilterValue(event.target.value)
+          }
+          className="max-w-sm"
+        />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="ml-auto">
+              Columns <ChevronDown className="ml-2 h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {table
+              .getAllColumns()
+              .filter((column) => column.getCanHide())
+              .map((column) => {
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={column.id}
+                    className="capitalize"
+                    checked={column.getIsVisible()}
+                    onCheckedChange={(value) =>
+                      column.toggleVisibility(!!value)
+                    }
+                  >
+                    {column.id}
+                  </DropdownMenuCheckboxItem>
+                );
+              })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       <div className="rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext()
-                        )}
-                  </TableHead>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  return (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  );
+                })}
               </TableRow>
             ))}
           </TableHeader>
           <TableBody>
-            {loading ? (
-              <TableRow>
-                <TableCell
-                  colSpan={columns.length}
-                  className="h-24 text-center"
-                >
-                  Loading...
-                </TableCell>
-              </TableRow>
-            ) : table.getRowModel().rows?.length ? (
+            {table.getRowModel().rows?.length ? (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  data-state={row.getIsSelected() && "selected"}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(
@@ -203,30 +252,36 @@ export function AttendanceTable({ filters }: AttendanceTableProps) {
                   colSpan={columns.length}
                   className="h-24 text-center"
                 >
-                  No attendance records found.
+                  No results.
                 </TableCell>
               </TableRow>
             )}
           </TableBody>
         </Table>
       </div>
-      <div className="flex items-center justify-end space-x-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.previousPage()}
-          disabled={!table.getCanPreviousPage()}
-        >
-          Previous
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => table.nextPage()}
-          disabled={!table.getCanNextPage()}
-        >
-          Next
-        </Button>
+      <div className="flex items-center justify-end space-x-2 py-4">
+        <div className="flex-1 text-sm text-muted-foreground">
+          {table.getFilteredSelectedRowModel().rows.length} of{" "}
+          {table.getFilteredRowModel().rows.length} row(s) selected.
+        </div>
+        <div className="space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.previousPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => table.nextPage()}
+            disabled={!table.getCanPreviousPage()}
+          >
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   );
