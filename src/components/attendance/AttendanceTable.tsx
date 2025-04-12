@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useRouter } from "next/navigation";
+import { EditAttendanceDialog } from "./EditAttendanceDialog";
 
 interface Attendance {
   id: string;
@@ -50,12 +51,23 @@ interface Attendance {
   notes?: string;
 }
 
-export function AttendanceTable({ data }: { data: Attendance[] }) {
+export function AttendanceTable({
+  data = [],
+  isLoading = false,
+}: {
+  data?: Attendance[];
+  isLoading?: boolean;
+}) {
   const router = useRouter();
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState({});
+  const [editingAttendance, setEditingAttendance] = useState<Attendance | null>(
+    null
+  );
+
+  const tableData = Array.isArray(data) ? data : [];
 
   const formatTime = (dateString: string | null) => {
     if (!dateString) return "-";
@@ -65,8 +77,11 @@ export function AttendanceTable({ data }: { data: Attendance[] }) {
 
   const columns: ColumnDef<Attendance>[] = [
     {
-      accessorKey: "employee.name",
+      accessorKey: "employee",
       header: "Employee",
+      cell: ({ row }) => {
+        return row.original.employee.name;
+      },
     },
     {
       accessorKey: "checkIn",
@@ -145,7 +160,11 @@ export function AttendanceTable({ data }: { data: Attendance[] }) {
                 View Details
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Edit</DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setEditingAttendance(attendance)}
+              >
+                Edit
+              </DropdownMenuItem>
               <DropdownMenuItem>Delete</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -155,7 +174,7 @@ export function AttendanceTable({ data }: { data: Attendance[] }) {
   ];
 
   const table = useReactTable({
-    data,
+    data: tableData,
     columns,
     onSortingChange: setSorting,
     onColumnFiltersChange: setColumnFilters,
@@ -173,16 +192,24 @@ export function AttendanceTable({ data }: { data: Attendance[] }) {
     },
   });
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full">
       <div className="flex items-center py-4">
         <Input
           placeholder="Filter by employee..."
           value={
-            (table.getColumn("employee.name")?.getFilterValue() as string) ?? ""
+            (table.getColumn("employee")?.getFilterValue() as string) ?? ""
           }
           onChange={(event) =>
-            table.getColumn("employee.name")?.setFilterValue(event.target.value)
+            table.getColumn("employee")?.setFilterValue(event.target.value)
           }
           className="max-w-sm"
         />
@@ -287,6 +314,14 @@ export function AttendanceTable({ data }: { data: Attendance[] }) {
           </Button>
         </div>
       </div>
+
+      {editingAttendance && (
+        <EditAttendanceDialog
+          attendance={editingAttendance}
+          open={!!editingAttendance}
+          onOpenChange={(open) => !open && setEditingAttendance(null)}
+        />
+      )}
     </div>
   );
 }

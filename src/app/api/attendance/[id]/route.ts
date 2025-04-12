@@ -2,22 +2,23 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { use } from "react";
 
-interface RouteProps {
-  params: Promise<{ id: string }>;
+interface RouteParams {
+  params: {
+    id: string;
+  };
 }
 
-// GET - Get a single attendance record
-export async function GET(request: Request, { params }: RouteProps) {
+// GET - Get single attendance record
+export async function GET(request: Request, { params }: RouteParams) {
   try {
-    const { id } = await params;
-
     const attendance = await prisma.attendance.findUnique({
-      where: { id },
+      where: {
+        id: params.id,
+      },
       include: {
         employee: {
           select: {
             id: true,
-            fingerId: true,
             name: true,
             email: true,
           },
@@ -32,30 +33,36 @@ export async function GET(request: Request, { params }: RouteProps) {
       );
     }
 
-    return NextResponse.json(attendance, { status: 200 });
+    return NextResponse.json(attendance);
   } catch (error) {
-    console.error(`Error fetching attendance record:`, error);
+    console.error("Error fetching attendance:", error);
     return NextResponse.json(
-      { error: "Failed to fetch attendance record" },
+      { error: "Failed to fetch attendance" },
       { status: 500 }
     );
   }
 }
 
-// PUT - Update an attendance record
-export async function PUT(request: Request, { params }: RouteProps) {
+// PATCH - Update attendance record
+export async function PATCH(request: Request, { params }: RouteParams) {
   try {
-    const { id } = await params;
     const body = await request.json();
+    const { checkIn, checkOut, status, notes } = body;
 
     const attendance = await prisma.attendance.update({
-      where: { id },
-      data: body,
+      where: {
+        id: params.id,
+      },
+      data: {
+        checkIn: checkIn ? new Date(checkIn) : undefined,
+        checkOut: checkOut ? new Date(checkOut) : undefined,
+        status,
+        notes,
+      },
       include: {
         employee: {
           select: {
             id: true,
-            fingerId: true,
             name: true,
             email: true,
           },
@@ -63,18 +70,18 @@ export async function PUT(request: Request, { params }: RouteProps) {
       },
     });
 
-    return NextResponse.json(attendance, { status: 200 });
+    return NextResponse.json(attendance);
   } catch (error) {
-    console.error(`Error updating attendance record:`, error);
+    console.error("Error updating attendance:", error);
     return NextResponse.json(
-      { error: "Failed to update attendance record" },
+      { error: "Failed to update attendance" },
       { status: 500 }
     );
   }
 }
 
 // DELETE - Delete an attendance record
-export async function DELETE(request: Request, { params }: RouteProps) {
+export async function DELETE(request: Request, { params }: RouteParams) {
   try {
     const { id } = await params;
 

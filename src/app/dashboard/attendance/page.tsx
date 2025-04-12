@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Plus, Search } from "lucide-react";
@@ -9,6 +9,18 @@ import { AttendanceFilters } from "@/components/attendance/AttendanceFilters";
 import { AttendanceStats } from "@/components/attendance/AttendanceStats";
 import { Input } from "@/components/ui/input";
 
+interface Attendance {
+  id: string;
+  employee: {
+    name: string;
+    email: string;
+  };
+  checkIn: string;
+  checkOut: string | null;
+  status: "present" | "absent" | "late" | "half-day";
+  notes?: string;
+}
+
 export default function AttendancePage() {
   const router = useRouter();
   const [filters, setFilters] = useState({
@@ -16,6 +28,36 @@ export default function AttendancePage() {
     employeeId: "all",
     search: "",
   });
+  const [attendances, setAttendances] = useState<Attendance[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchAttendances = async () => {
+      try {
+        setIsLoading(true);
+        const params = new URLSearchParams();
+        if (filters.date) {
+          params.append("date", filters.date.toISOString());
+        }
+        if (filters.employeeId) {
+          params.append("employeeId", filters.employeeId);
+        }
+
+        const response = await fetch(`/api/attendances?${params.toString()}`);
+        if (!response.ok) {
+          throw new Error("Failed to fetch attendances");
+        }
+        const data = await response.json();
+        setAttendances(data);
+      } catch (error) {
+        console.error("Error fetching attendances:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchAttendances();
+  }, [filters]);
 
   return (
     <div className="space-y-6">
@@ -43,7 +85,7 @@ export default function AttendancePage() {
         <AttendanceFilters filters={filters} setFilters={setFilters} />
       </div>
 
-      <AttendanceTable filters={filters} />
+      <AttendanceTable data={attendances} isLoading={isLoading} />
     </div>
   );
 }
