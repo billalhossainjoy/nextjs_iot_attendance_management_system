@@ -13,7 +13,7 @@ import {
   getSortedRowModel,
   useReactTable,
 } from "@tanstack/react-table";
-import { format } from "date-fns";
+import { format, isValid } from "date-fns";
 import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -57,6 +57,12 @@ export function AttendanceTable({ data }: { data: Attendance[] }) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = useState({});
 
+  const formatTime = (dateString: string | null) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return isValid(date) ? format(date, "hh:mm a") : "-";
+  };
+
   const columns: ColumnDef<Attendance>[] = [
     {
       accessorKey: "employee.name",
@@ -76,8 +82,7 @@ export function AttendanceTable({ data }: { data: Attendance[] }) {
         );
       },
       cell: ({ row }) => {
-        const checkIn = row.original.checkIn;
-        return checkIn ? format(new Date(checkIn), "hh:mm a") : "-";
+        return formatTime(row.original.checkIn);
       },
     },
     {
@@ -94,8 +99,7 @@ export function AttendanceTable({ data }: { data: Attendance[] }) {
         );
       },
       cell: ({ row }) => {
-        const checkOut = row.original.checkOut;
-        return checkOut ? format(new Date(checkOut), "hh:mm a") : "-";
+        return formatTime(row.original.checkOut);
       },
     },
     {
@@ -277,7 +281,7 @@ export function AttendanceTable({ data }: { data: Attendance[] }) {
             variant="outline"
             size="sm"
             onClick={() => table.nextPage()}
-            disabled={!table.getCanPreviousPage()}
+            disabled={!table.getCanNextPage()}
           >
             Next
           </Button>
